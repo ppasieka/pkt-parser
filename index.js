@@ -2,22 +2,27 @@ var Nightmare = require('nightmare');
 var jsonfile = require('jsonfile')
 
 function extractData () {
-  function propOrEmpty (obj, prop) {
+  function defaultIfNil (obj, prop) {
     if (obj == null) {
       return ''
     }
     return obj[prop]
   }
 
-  function parseBox (box) {
+  var transform = $obj => (selector, prop) => {
+    return defaultIfNil($obj.find(selector).get(0), prop)
+  }
+  
+  var parseBox = function (box) {
+    var $box = transform($(box))
     var object = {
-      'name': propOrEmpty($(box).find('.company-name').get(0), 'innerText'),
-      'company-category': propOrEmpty($(box).find('.company-category').get(0), 'innerText'),
-      'www': propOrEmpty($(box).find('.www--full').get(0), 'innerText'),
+      'name': $box('.company-name', 'innerText'),
+      'company-category': $box('.company-category', 'innerText'),
+      'www': $box('.www--full', 'innerText'),
       'phone': $(box).find('meta[itemprop=telephone]').attr('content'),
       'email': $(box).find('a[data-popup=email-popup]>span').attr('title'),
-      'address': propOrEmpty($(box).find('.street-address').get(0), 'innerText'),
-      'company-snippet': propOrEmpty($(box).find('.company-snippet').get(0), 'innerText')
+      'address': $box('.street-address', 'innerText'),
+      'company-snippet': $box('.company-snippet', 'innerText')
     }
     return object
   }
@@ -34,13 +39,13 @@ function parse(url) {
     .end()
 }
 
-
-
 Promise.all([
   parse('https://www.pkt.pl/szukaj/noclegi/zakopane/1'),
   parse('https://www.pkt.pl/szukaj/noclegi/zakopane/2'),
   parse('https://www.pkt.pl/szukaj/noclegi/zakopane/3'),
   parse('https://www.pkt.pl/szukaj/noclegi/zakopane/4')
+
+  // ... /49
 ]).then(data => {
   var output = data.reduce((a, c) => a.concat(c), [])
   jsonfile.writeFile('output.json', output, { spaces: 2}, function(err) {
