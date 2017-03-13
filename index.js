@@ -1,7 +1,11 @@
 var Nightmare = require('nightmare');
-var jsonfile = require('jsonfile')
+var jsonfile = require('jsonfile');
+var co = require('co')
+var R = require('ramda')
 
-function extractData () {
+var log = header => R.tap(value => console.log(`${header}: ${value}`))
+
+var extractData = function extractData () {
   function defaultIfNil (obj, prop) {
     if (obj == null) {
       return ''
@@ -30,26 +34,59 @@ function extractData () {
   return $('.box-content').toArray().map(parseBox).filter(x => x.name.length > 0)
 }
 
-function parse(url) {
+var extractTotalPages = function extractTotalPages () {
+  // TODO > implement this function
+  return 5;
+}
+
+var getNumOfPages = function getNumOfPages(url) {
+  console.log(`Extracting ${url}`)
+  return Nightmare()
+    .goto(url)
+    .wait()
+    .evaluate(extractTotalPages)
+    .end()
+    .then(log('Found pages'))
+}
+
+var parse = function parse(url) {
   console.log(`Start parsing ${url}`)
-  return Nightmare({ show: false })
+  return Nightmare()
     .goto(url)
     .wait()
     .evaluate(extractData)
     .end()
+    .then(data => { 
+      console.log(`Finished with: ${url}`);
+      return data;
+   })
 }
 
-Promise.all([
-  parse('https://www.pkt.pl/szukaj/noclegi/zakopane/1'),
-  parse('https://www.pkt.pl/szukaj/noclegi/zakopane/2'),
-  parse('https://www.pkt.pl/szukaj/noclegi/zakopane/3'),
-  parse('https://www.pkt.pl/szukaj/noclegi/zakopane/4')
 
-  // ... /49
-]).then(data => {
-  var output = data.reduce((a, c) => a.concat(c), [])
-  jsonfile.writeFile('output.json', output, { spaces: 2}, function(err) {
-    console.error(err)
+var makePagesArray = R.compose(R.range(1), R.inc)
+
+var locationStr = 'zakopane'
+var url = `https://www.pkt.pl/szukaj/noclegi/${locationStr}/`
+
+var parsePages = function*(pages) {
+  var parseOutput = []
+  var result = null
+  for(let p of pages) {
+    result = yield parse(url + p)
+    parseOutput = parseOutput.concat(result)
+  }
+  return parseOutput
+}
+
+
+getNumOfPages(url)
+  .then(makePagesArray)
+  .then(pages => co(parsePages(pages)) )
+  .then(allData => {
+    jsonfile.writeFile(`${locationStr}.json`, allData, { spaces: 2 }, function (err) {
+      console.error(err)
+    })
   })
-  console.log('DONE')
-})
+  .catch(err => {
+    console.log(err)
+  })

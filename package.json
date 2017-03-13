@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/ppasieka/pkt-parser#readme",
   "dependencies": {
+    "co": "^4.6.0",
     "jsonfile": "^2.4.0",
     "nightmare": "^2.10.0",
     "ramda": "^0.23.0"
